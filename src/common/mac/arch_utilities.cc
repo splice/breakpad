@@ -38,7 +38,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && (defined(__MAC_13_0) || defined(__IPHONE_16_0))
 #include <mach-o/utils.h>
 #endif
 
@@ -95,40 +95,33 @@ ArchInfo GetLocalArchInfo(void) {
 #ifdef __APPLE__
 
 std::optional<ArchInfo> GetArchInfoFromName(const char* arch_name) {
-  if (__builtin_available(macOS 13.0, iOS 16.0, *)) {
-    cpu_type_t type;
-    cpu_subtype_t subtype;
-    if (macho_cpu_type_for_arch_name(arch_name, &type, &subtype)) {
-      return ArchInfo{type, subtype};
-    }
-  } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    const NXArchInfo* info = NXGetArchInfoFromName(arch_name);
-#pragma clang diagnostic pop
-    if (info) {
-      return ArchInfo{info->cputype, info->cpusubtype};
-    }
+#if defined(__MAC_13_0) || defined(__IPHONE_16_0)
+  cpu_type_t type;
+  cpu_subtype_t subtype;
+  if (macho_cpu_type_for_arch_name(arch_name, &type, &subtype)) {
+    return ArchInfo{type, subtype};
   }
+#else
+  const NXArchInfo* info = NXGetArchInfoFromName(arch_name);
+  if (info) {
+    return ArchInfo{info->cputype, info->cpusubtype};
+  }
+#endif
   return std::nullopt;
 }
 
 const char* GetNameFromCPUType(cpu_type_t cpu_type, cpu_subtype_t cpu_subtype) {
-  if (__builtin_available(macOS 13.0, iOS 16.0, *)) {
-    const char* name = macho_arch_name_for_cpu_type(cpu_type, cpu_subtype);
-    if (name) {
-      return name;
-    }
-  } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    const NXArchInfo* info = NXGetArchInfoFromCpuType(cpu_type, cpu_subtype);
-#pragma clang diagnostic pop
-    if (info) {
-      return info->name;
-    }
+#if defined(__MAC_13_0) || defined(__IPHONE_16_0)
+  const char* name = macho_arch_name_for_cpu_type(cpu_type, cpu_subtype);
+  if (name) {
+    return name;
   }
-
+#else
+  const NXArchInfo* info = NXGetArchInfoFromCpuType(cpu_type, cpu_subtype);
+  if (info) {
+    return info->name;
+  }
+#endif
   return kUnknownArchName;
 }
 
