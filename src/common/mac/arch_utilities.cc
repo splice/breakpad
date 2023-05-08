@@ -38,7 +38,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 || \
+                           __IPHONE_OS_VERSION_MAX_ALLOWED >= 160000)
 #include <mach-o/utils.h>
 #endif
 
@@ -87,7 +88,7 @@ ArchInfo GetLocalArchInfo(void) {
 #elif defined(__powerpc__)
   arch = kArch_ppc;
 #else
-  #error "Unsupported CPU architecture"
+#error "Unsupported CPU architecture"
 #endif
   return kKnownArchitectures[arch].info;
 }
@@ -95,6 +96,8 @@ ArchInfo GetLocalArchInfo(void) {
 #ifdef __APPLE__
 
 std::optional<ArchInfo> GetArchInfoFromName(const char* arch_name) {
+#if (__MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 || \
+     __IPHONE_OS_VERSION_MAX_ALLOWED >= 160000)
   if (__builtin_available(macOS 13.0, iOS 16.0, *)) {
     cpu_type_t type;
     cpu_subtype_t subtype;
@@ -110,10 +113,18 @@ std::optional<ArchInfo> GetArchInfoFromName(const char* arch_name) {
       return ArchInfo{info->cputype, info->cpusubtype};
     }
   }
+#else
+  const NXArchInfo* info = NXGetArchInfoFromName(arch_name);
+  if (info) {
+    return ArchInfo{info->cputype, info->cpusubtype};
+  }
+#endif
   return std::nullopt;
 }
 
 const char* GetNameFromCPUType(cpu_type_t cpu_type, cpu_subtype_t cpu_subtype) {
+#if (__MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 || \
+     __IPHONE_OS_VERSION_MAX_ALLOWED >= 160000)
   if (__builtin_available(macOS 13.0, iOS 16.0, *)) {
     const char* name = macho_arch_name_for_cpu_type(cpu_type, cpu_subtype);
     if (name) {
@@ -128,7 +139,12 @@ const char* GetNameFromCPUType(cpu_type_t cpu_type, cpu_subtype_t cpu_subtype) {
       return info->name;
     }
   }
-
+#else
+  const NXArchInfo* info = NXGetArchInfoFromCpuType(cpu_type, cpu_subtype);
+  if (info) {
+    return info->name;
+  }
+#endif
   return kUnknownArchName;
 }
 
