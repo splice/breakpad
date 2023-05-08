@@ -38,7 +38,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#if defined(__APPLE__) && (defined(__MAC_13_0) || defined(__IPHONE_16_0))
+#if defined(__APPLE__) && (__MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 || \
+                           __IPHONE_OS_VERSION_MAX_ALLOWED >= 160000)
 #include <mach-o/utils.h>
 #endif
 
@@ -87,7 +88,7 @@ ArchInfo GetLocalArchInfo(void) {
 #elif defined(__powerpc__)
   arch = kArch_ppc;
 #else
-  #error "Unsupported CPU architecture"
+#error "Unsupported CPU architecture"
 #endif
   return kKnownArchitectures[arch].info;
 }
@@ -95,11 +96,22 @@ ArchInfo GetLocalArchInfo(void) {
 #ifdef __APPLE__
 
 std::optional<ArchInfo> GetArchInfoFromName(const char* arch_name) {
-#if defined(__MAC_13_0) || defined(__IPHONE_16_0)
-  cpu_type_t type;
-  cpu_subtype_t subtype;
-  if (macho_cpu_type_for_arch_name(arch_name, &type, &subtype)) {
-    return ArchInfo{type, subtype};
+#if (__MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 || \
+     __IPHONE_OS_VERSION_MAX_ALLOWED >= 160000)
+  if (__builtin_available(macOS 13.0, iOS 16.0, *)) {
+    cpu_type_t type;
+    cpu_subtype_t subtype;
+    if (macho_cpu_type_for_arch_name(arch_name, &type, &subtype)) {
+      return ArchInfo{type, subtype};
+    }
+  } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    const NXArchInfo* info = NXGetArchInfoFromName(arch_name);
+#pragma clang diagnostic pop
+    if (info) {
+      return ArchInfo{info->cputype, info->cpusubtype};
+    }
   }
 #else
   const NXArchInfo* info = NXGetArchInfoFromName(arch_name);
@@ -111,10 +123,21 @@ std::optional<ArchInfo> GetArchInfoFromName(const char* arch_name) {
 }
 
 const char* GetNameFromCPUType(cpu_type_t cpu_type, cpu_subtype_t cpu_subtype) {
-#if defined(__MAC_13_0) || defined(__IPHONE_16_0)
-  const char* name = macho_arch_name_for_cpu_type(cpu_type, cpu_subtype);
-  if (name) {
-    return name;
+#if (__MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 || \
+     __IPHONE_OS_VERSION_MAX_ALLOWED >= 160000)
+  if (__builtin_available(macOS 13.0, iOS 16.0, *)) {
+    const char* name = macho_arch_name_for_cpu_type(cpu_type, cpu_subtype);
+    if (name) {
+      return name;
+    }
+  } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    const NXArchInfo* info = NXGetArchInfoFromCpuType(cpu_type, cpu_subtype);
+#pragma clang diagnostic pop
+    if (info) {
+      return info->name;
+    }
   }
 #else
   const NXArchInfo* info = NXGetArchInfoFromCpuType(cpu_type, cpu_subtype);
