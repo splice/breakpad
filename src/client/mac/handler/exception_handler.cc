@@ -732,7 +732,14 @@ bool ExceptionHandler::UninstallHandler(bool in_exception) {
     previous_ = NULL;
     installed_exception_handler_ = false;
   }
-
+  // SPLICE: after re-installing the previous handler, we need to re-raise the signal in order
+  // for the previous handler to receive it. I was not able to find the specific signal that was
+  // raised, but calling std::abort() will trigger a SIGABRT signal which is sufficient.
+  // TODO: we need to confirm that it is ok to abort() at this point in the code path. Does additional
+  // cleanup need to be run before this happens?
+  if (in_exception) {
+    std::abort();
+  }
   return result == KERN_SUCCESS;
 }
 
